@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.*
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -24,6 +25,8 @@ class CrimeListFragment : Fragment() {
 
     private var callbacks: Callbacks? = null
     private lateinit var crimeRecyclerView: RecyclerView
+    private lateinit var emptyListTextView: TextView
+    private lateinit var emptyListAddNewCrimeButton: Button
     private var adapter: CrimeAdapter? = CrimeAdapter(emptyList())
 
     private val crimeListViewModel: CrimeListViewModel by lazy {
@@ -50,6 +53,14 @@ class CrimeListFragment : Fragment() {
         crimeRecyclerView = view.findViewById(R.id.crime_recycler_view) as RecyclerView
         crimeRecyclerView.layoutManager = LinearLayoutManager(context)
         crimeRecyclerView.adapter = adapter
+
+        emptyListTextView = view.findViewById(R.id.empty_crime_list_text) as TextView
+        emptyListAddNewCrimeButton = view.findViewById(R.id.add_new_crime_button) as Button
+        emptyListAddNewCrimeButton.setOnClickListener {
+            val crime = Crime()
+            crimeListViewModel.addCrime(crime)
+            callbacks?.onCrimeSelected(crime.id)
+        }
         return view
     }
 
@@ -89,8 +100,15 @@ class CrimeListFragment : Fragment() {
     }
 
     private fun updateUI(crimes: List<Crime>) {
-        adapter = CrimeAdapter(crimes)
-        crimeRecyclerView.adapter = adapter
+        if (crimes.isEmpty()) {
+            emptyListTextView.visibility = View.VISIBLE
+            emptyListAddNewCrimeButton.visibility = View.VISIBLE
+        } else {
+            emptyListTextView.visibility = View.INVISIBLE
+            emptyListAddNewCrimeButton.visibility = View.INVISIBLE
+            adapter = CrimeAdapter(crimes)
+            crimeRecyclerView.adapter = adapter
+        }
     }
 
     private inner class CrimeHolder(view: View) : RecyclerView.ViewHolder(view), View.OnClickListener {
