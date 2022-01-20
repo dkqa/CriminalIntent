@@ -36,6 +36,7 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
     private lateinit var solvedCheckBox: CheckBox
     private lateinit var reportButton: Button
     private lateinit var suspectButton: Button
+    private lateinit var callButton: Button
 
     private val crimeDetailViewModel: CrimeDetailViewModel by lazy {
         ViewModelProviders.of(this).get(CrimeDetailViewModel::class.java)
@@ -59,6 +60,7 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
         solvedCheckBox = view.findViewById(R.id.crime_solved) as CheckBox
         reportButton = view.findViewById(R.id.crime_report) as Button
         suspectButton = view.findViewById(R.id.crime_suspect) as Button
+        callButton = view.findViewById(R.id.crime_call) as Button
 
         return view
     }
@@ -119,7 +121,7 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
         }
 
         suspectButton.apply {
-            val pickContactIntent = Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI)
+            val pickContactIntent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
             setOnClickListener {
                 startActivityForResult(pickContactIntent, REQUEST_CONTACT)
             }
@@ -129,6 +131,12 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
             if (resolvedActivity == null) {
                 isEnabled = false
             }
+        }
+
+        callButton.setOnClickListener {
+            val dialNumber = Intent(Intent.ACTION_DIAL)
+            dialNumber.data = Uri.parse("tel: ${crime.suspectNumber}")
+            startActivity(dialNumber)
         }
 
     }
@@ -153,6 +161,8 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
         if (crime.suspect.isNotEmpty()) {
             suspectButton.text = crime.suspect
         }
+
+        callButton.isEnabled = crime.suspectNumber.isNotEmpty()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -160,25 +170,30 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
             resultCode != Activity.RESULT_OK -> return
 
             requestCode == REQUEST_CONTACT && data != null -> {
-                val contactUri: Uri? = data.data
-                // Указать, для каких полей ваш запрос должен возвращать значения
-                val queryFields = arrayOf(ContactsContract.Contacts.DISPLAY_NAME)
-                // Выполняемый здесь запрос - contactUri похож на предложение "where"
-                val cursor = requireActivity().contentResolver
-                    .query(contactUri!!, queryFields, null, null, null)
-                cursor?.use {
-                    // Verify cursor contacts at least one result
-                    if (it.count == 0) {
+                val contactURI : Uri? = data.data
+
+                val queryFields = ContactsContract.CommonDataKinds.Phone._ID
+
+                val cursor =
+                    requireActivity().contentResolver
+                        .query(contactURI!!, null, queryFields, null, null)
+
+                cursor.use {
+                    if (it?.count == 0) {
                         return
                     }
+                    it?.moveToFirst()
 
-                    // Первый столбец первой строки данных - это имя вашего подозреваемого
-                    it.moveToFirst()
-                    val suspect = it.getString(0)
-                    crime.suspect = suspect
+                    val suspectName = it!!.getString(it.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME))
+                    val suspectNumber = it.getString(it.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER))
+
+                    crime.suspect = suspectName
+                    crime.suspectNumber = suspectNumber
                     crimeDetailViewModel.saveCrime(crime)
-                    suspectButton.text = suspect
+                    suspectButton.text = suspectName
+                    callButton.isEnabled = true
                 }
+                cursor?.close()
             }
         }
     }
