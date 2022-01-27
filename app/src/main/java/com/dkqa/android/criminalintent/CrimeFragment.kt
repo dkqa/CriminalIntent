@@ -1,9 +1,11 @@
 package com.dkqa.android.criminalintent
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
@@ -32,6 +34,12 @@ private const val DATA_FORMAT = "EEE, MMM, dd"
 
 class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
 
+    interface Callbacks {
+        fun onClickImage(path: String)
+    }
+
+    private var callbacks: Callbacks? = null
+
     private lateinit var crime: Crime
     private lateinit var photoFile: File
     private lateinit var photoUri: Uri
@@ -46,6 +54,11 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
 
     private val crimeDetailViewModel: CrimeDetailViewModel by lazy {
         ViewModelProviders.of(this).get(CrimeDetailViewModel::class.java)
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        callbacks = context as Callbacks?
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -174,6 +187,10 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
             }
         }
 
+        photoView.setOnClickListener {
+            callbacks?.onClickImage(photoFile.path)
+        }
+
     }
 
     override fun onStop() {
@@ -184,6 +201,7 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
     override fun onDetach() {
         super.onDetach()
         requireActivity().revokeUriPermission(photoUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        callbacks = null
     }
 
     override fun onDateSelected(date: Date) {
@@ -208,8 +226,10 @@ class CrimeFragment : Fragment(), DatePickerFragment.Callbacks {
         if (photoFile.exists()) {
             val bitmap = getScaledBitmap(photoFile.path, requireActivity())
             photoView.setImageBitmap(bitmap)
+            photoView.isClickable = true
         } else {
             photoView.setImageDrawable(null)
+            photoView.isClickable = false
         }
     }
 
